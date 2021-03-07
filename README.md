@@ -72,6 +72,10 @@ console.log(bClass.getMethod('baz').returnType) // A
 // ...These are just a few of the facts you can introspect at runtime
 ```
 
+# Introduction & Motivation
+
+For details on the motivation behind this project, see [MOTIVATION.md](MOTIVATION.md)
+
 # Features
 
 - Emits metadata for all syntactic elements (classes, methods, properties, functions) parsed by Typescript
