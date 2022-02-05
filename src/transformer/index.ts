@@ -31,6 +31,7 @@ import { rtHelper } from './rt-helper';
 import { serialize } from './serialize';
 import * as ts from 'typescript';
 import { cloneEntityNameAsExpr, getRootNameOfEntityName } from './utils';
+import { T_ANY, T_ARRAY, T_GENERIC, T_INTERSECTION, T_THIS, T_TUPLE, T_UNION, T_UNKNOWN } from '../common';
 
 export enum TypeReferenceSerializationKind {
     // The TypeReferenceNode could not be resolved.
@@ -161,6 +162,28 @@ const transformer: (program : ts.Program) => ts.TransformerFactory<ts.SourceFile
                 if (!typeNode)
                     return ts.factory.createVoidZero();
                 
+                let expr = serializeBaseTypeRef(typeNode, extended);
+
+                if (extended) {
+                    if (ts.isTypeReferenceNode(typeNode)) {
+                        if (typeNode.typeArguments && typeNode.typeArguments.length > 0) {
+                            // Handle generic types like Promise<string> etc
+                            expr = serialize({ 
+                                TΦ: T_GENERIC, 
+                                t: literalNode(expr),
+                                p: typeNode.typeArguments.map(x => literalNode(serializeTypeRef(x, extended)))
+                            });
+                        }
+                    }
+                }
+
+                return expr;
+            }
+
+            function serializeBaseTypeRef(typeNode : ts.Node, extended): ts.Expression {
+                if (!typeNode)
+                    return ts.factory.createVoidZero();
+                
 
                 if (ts.isTypeReferenceNode(typeNode)) {
                     const resolver = context['getEmitResolver']();
@@ -169,7 +192,7 @@ const transformer: (program : ts.Program) => ts.TransformerFactory<ts.SourceFile
                     let expr : ts.PropertyAccessExpression | ts.Identifier ;
 
                     if (ts.isIdentifier(typeNode.typeName)) {
-                        let primitiveTypes = ['Number', 'String', 'Boolean', 'Function', 'Object'];
+                        let primitiveTypes = ['Number', 'String', 'Boolean', 'Function', 'Object', 'Promise', 'Symbol'];
                         if (primitiveTypes.includes(typeNode.typeName.text)) {
                             return ts.factory.createIdentifier(typeNode.typeName.text);
                         }
@@ -241,35 +264,82 @@ const transformer: (program : ts.Program) => ts.TransformerFactory<ts.SourceFile
                 else if (typeNode.kind === ts.SyntaxKind.BigIntKeyword)
                     return ts.factory.createIdentifier('BigInt');
                 else if (typeNode.kind === ts.SyntaxKind.AnyKeyword)
-                    return ts.factory.createIdentifier('Object');
+                    return serialize({ TΦ: T_ANY });
                 else if (typeNode.kind === ts.SyntaxKind.FunctionType)
                     return ts.factory.createIdentifier('Function');
                 else if (typeNode.kind === ts.SyntaxKind.UnknownKeyword)
-                    return ts.factory.createIdentifier('Object');
+                    return serialize({ TΦ: T_UNKNOWN });
                 else if (ts.isArrayTypeNode(typeNode)) {
                     if (extended)
-                        return ts.factory.createArrayLiteralExpression([serializeTypeRef(typeNode.elementType, true)]);
+                        return serialize({ TΦ: T_ARRAY, e: literalNode(serializeTypeRef(typeNode.elementType, true)) });
                     else
                         return ts.factory.createIdentifier('Array');
                 }
                 
+                if (ts.isLiteralTypeNode(typeNode)) {
+                    let literal = typeNode.literal;
+
+                    if (ts.isLiteralExpression(literal))
+                        return literal;
+                    if (ts.isPrefixUnaryExpression(literal))
+                        return literal;
+                    
+                    switch (literal.kind) {
+                        case ts.SyntaxKind.NullKeyword:
+                            return ts.factory.createIdentifier('null');
+                        case ts.SyntaxKind.FalseKeyword:
+                            return ts.factory.createIdentifier('false');
+                        case ts.SyntaxKind.TrueKeyword:
+                            return ts.factory.createIdentifier('true');
+                    }
+                }
+                
+                if (ts.isTupleTypeNode(typeNode)) {
+                    if (!extended)
+                        return ts.factory.createIdentifier('Object');
+                    
+                    return serialize({
+                        TΦ: T_TUPLE,
+                        e: typeNode.elements.map(e => {
+                            if (ts.isNamedTupleMember(e)) {
+                                return { n: e.name.text, t: literalNode(serializeTypeRef(e.type, extended)) };
+                            } else {
+                                return { t: literalNode(serializeTypeRef(e, extended)) };
+                            }
+                        })
+                    })
+                    
+                }
+
                 if (ts.isUnionTypeNode(typeNode)) {
                     if (!extended)
                         return ts.factory.createIdentifier('Object');
 
                     return serialize({
-                        kind: 'union',
-                        types: typeNode.types.map(x => literalNode(serializeTypeRef(x, extended)))
+                        TΦ: T_UNION,
+                        t: typeNode.types.map(x => literalNode(serializeTypeRef(x, extended)))
                     });
                 } else if (ts.isIntersectionTypeNode(typeNode)) {
                     if (!extended)
                         return ts.factory.createIdentifier('Object');
                     
                     return serialize({
-                        kind: 'intersection',
-                        types: typeNode.types.map(x => literalNode(serializeTypeRef(x, extended)))
+                        TΦ: T_INTERSECTION,
+                        t: typeNode.types.map(x => literalNode(serializeTypeRef(x, extended)))
                     });
                 }
+
+                if (ts.isThisTypeNode(typeNode))
+                    return serialize({ TΦ: T_THIS });
+
+                if (ts.isConditionalTypeNode(typeNode))
+                    return ts.factory.createIdentifier('Object');
+
+                if (ts.isTypePredicateNode(typeNode))
+                    return ts.factory.createIdentifier('Boolean');
+
+                if (typeNode.kind === ts.SyntaxKind.UndefinedKeyword)
+                    return ts.factory.createVoidZero();
 
                 /// ??
 

@@ -37,7 +37,7 @@ Note that you do not need `emitDecoratorMetadata` turned on unless you have code
 After your project is compiled, you can then use the built-in reflection API:
 
 ```typescript
-import { ReflectedClass } from 'rtti-typescript';
+import { ReflectedClass } from 'typescript-rtti';
 
 class A {
     constructor(
@@ -83,7 +83,10 @@ For details on the motivation behind this project, see [MOTIVATION.md](MOTIVATIO
 - Metadata format supports forward referencing via type resolvers
 - Supports reflecting on intrinsic inferred return types (ie Number, String, etc) in addition to directly specified 
   types
+- Supports reflecting on literal types (ie `null`, `true`, `false`, `undefined`, and literal expression types like 
+  `123` or `'foobar'`)
 - Supports introspection of union and intersection types
+- Supports array and tuple types
 - Supports visibility (public, private), abstract, readonly, optional and more
 - Comprehensive and well tested implementation
 - Supports all targets (ES5 through ES2020)
@@ -103,15 +106,21 @@ Enabling `emitDecoratorMetadata` causes `typescript-rtti` to emit both the `desi
 # Types without a value (Interfaces, Transformations, etc)
 
 This package will output a runtime type of `Object` for any type which is not a class, a constructor, or intrinsic 
-(primitive). There is currently no support for representing interfaces, transformation types, unions, intersections, or other 
-Typescript types which have no value at runtime. Adding representations for these types is not outside the scope of this 
+(primitive). While there is support for simple features like unions, intersections, array types and tuple types, there is currently no support for representing interfaces, transformation types, and other 
+Typescript types which have no value at runtime (they will be emitted as `Object` at runtime). Adding representations for these types is not outside the scope of this 
 project, but emitting metadata for such types is extremely difficult to do correctly while avoiding ballooning the size of the 
 emitted output. If you are interested in adding support for these types, please open an issue to discuss how we might go about 
 adding support.
 
+# Backward Compatibility
+
+The library is in alpha, so currently no backward compatibility is guaranteed but we are tracking back-compat breakage in CHANGELOG.md as we approach a release with proper adherence to semver. 
+
+We do not consider a change which causes the transformer to emit a more specific type where it used to emit `Object` as breaking backwards compatibility, but we do consider changes to other emitted types as breaking backward compatibility.
+
 # Format
 
-The metadata emitted has a terse but intuitive structure. 
+The metadata emitted has a terse but intuitive structure. Note that you are not intended to access this metadata directly, instead you should use the built-in Reflection API (`ReflectedClass` et al).
 
 ## Class Sample
 
