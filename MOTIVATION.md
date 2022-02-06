@@ -253,4 +253,24 @@ class CleanScript extends Script {
 CleanScript.run();
 ```
 
-Still no problem-- nothing is exported
+Still no problem-- nothing is exported, so `ctor()` shouldn't cause an import to occur (though I'm not sure if this is the case for `tst-reflect`, even if it was it's a bug that can be fixed). But what if the developer made a mistake?
+
+
+```
+// src/scripts/clean-build.ts
+
+import rimraf from 'rimraf';
+import * as path from 'path';
+import { Script } from './script';
+
+export class CleanScript extends Script {
+  run() {
+    rimraf(path.join(__dirname, '..', '..', 'dist'));
+  }
+}
+
+CleanScript.run();
+```
+
+Now any type lookup will delete all of the compilation results. Imagine that the type lookup was done in response to a rare API call. The program would not crash immediately, it would fail to start the next time the process is restarted. This would be very difficult to debug.
+
