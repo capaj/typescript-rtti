@@ -1,6 +1,20 @@
-# Motivation
+# Runtime Type Information for Typescript
 
-There have been many attempts in the community to push forward on runtime type information support in Typescript. Declarative frameworks like Alterior, Angular, TypeORM, Booster Cloud, Nest.js all make use of the existing but limited runtime type metadata system supported by Typescript with the `emitDecoratorMetadata` function, but since this functionality is highly tied to Typescript's "decorators" feature, these libraries are forced to incorporate decorators into their designs, typically in a clever way that papers over the deficiencies of Typescript's runtime type information mechanisms.
+> _A discussion of the the motivations behind `reflect()` and the `typescript-rtti` project_
+
+Author: William Lahti <wilahti@gmail.com> (@rezonant)
+
+# Introduction
+
+With the advent of Typescript transformers there have been some attempts in the community to push forward on runtime type information support in Typescript but few have reached a level suitable for use in the broader community. The few that do have not rose to the defacto standard needed to form consensus. 
+
+Numerous popular libraries and frameworks make use of the existing but limited runtime type metadata system supported by Typescript for use cases like serialization, validation, ORM, dependency injection, declarative web services, testing, and even aspect-oriented programming. With this functionality directly tied to decorators these libraries are forced to incorporate them into their API designs, typically in a way that cleverly hides the deficiencies of Typescript's underlying runtime type information mechanism, `emitDecoratorMetadata`. Personally I'm a huge fan of decorators, and I wait with bated breath for Ecmascript decorators to reach Stage 3, but it is simply not logical that runtime type information is predicated upon usage of this feature. It seems there's a sizable appetite for this amongst the community as well. 
+
+There is also an opportunity to fix the mistakes of the `emitDecoratorMetadata` format.
+- Using reference indirection to solve the declaration ordering / circular reference problem
+- Making the format more extensible
+- More efficient
+- More comprehensive
 
 # The Mechanism
 
@@ -53,7 +67,7 @@ Frameworks which have reliable runtime type information to depend on can be desi
 
 Creating and maintaining a community solution has some long term impacts to the entire ecosystem: there will be package versions published which ship a particular metadata format, and should it become popular, it may create difficulties for long term compatibility. Whatever community solution provides runtime type metadata should be cognizant of backwards compatibility, not just for its own semantic versioning _but support for previous formats in perpetuity_. This is a difficult challenge that is exacerbated when end user code directly accesses the emitted metadata.
 
-# Coupling the API to the Metadata Emission
+# Solution: Metadata via API
 
 We want to solve the problems we've elaborated above:
 - Provide runtime type metadata to solve existing and future declarative framework usecases
